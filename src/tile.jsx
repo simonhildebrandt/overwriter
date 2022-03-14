@@ -1,37 +1,38 @@
 import React from 'react';
 
-import styled from 'styled-components';
-
 import { keyFor } from './utils';
 
+import Hex from './hex';
 
 
-const Text = styled.text`
-font-family: Roboto;
-font-size: 40px;
-text-anchor: middle;
-dominant-baseline: middle;
-cursor: pointer;
-pointer-events: none;
-`
+colors = [
+"#196774",
+"#90A19D",
+"#F0941F",
+"#EF6024",
+"#363432",
+]
 
-export default function Tile({tile, letters, selected, onPointerDown, onPointerMove, onPointerUp, onClick}) {
+
+export default function Tile({tile, letters, selected, onClick, onLetterDrop}) {
   const { row, col } = tile;
 
   const active = selected && selected.row == row && selected.col == col;
   const tileX = col * 70 - 35 * row + 230;
   const tileY = 60 * row + 100;
 
-  const { letter, color } = letters[keyFor(tile)] || {};
+  const { letter, team } = letters[keyFor(tile)] || {};
+  const color = colors[team] || 'white';
 
-  return <g transform={`translate(${tileX} ${tileY})`}>
-    <path
-      stroke={letter ? "black" : 'gray'}
-      fill={color ? color : "white"}
-      strokeWidth={active ? 4 : 2}
-      d="M0 -30L30 -15V20L0 35L-30 20V-15Z"
-      onClick={() => onClick(row, col)}
-    />
-    <Text y="6">{letter?.toUpperCase()}</Text>
-  </g>
+  const handleLetterDrop = letter => onLetterDrop(tile, letter);
+
+  return <Hex
+    transform={`translate(${tileX} ${tileY})`}
+    color={color}
+    active={active}
+    letter={letter}
+    onClick={() => onClick(row, col)}
+    onLetterDrop={handleLetterDrop}
+  />
 }
+

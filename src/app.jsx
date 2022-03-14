@@ -4,6 +4,8 @@ import styled from 'styled-components';
 import { download, has, traverse } from 'dictionarily';
 
 import Tile from './tile';
+import AvailableLetters from './available-letters';
+
 import { keyFor, buildField, adjacent, coil, add } from './utils';
 
 
@@ -40,7 +42,7 @@ const Panel = styled.div`
 
 const center = { row: 5, col: 5};
 
-function Field({scale, onClick, letters, selected, tiles}) {
+function Field({scale, onClick, letters, selected, tiles, onLetterDrop}) {
   return <svg
     width={800 * scale}
     height={800 * scale}
@@ -53,6 +55,7 @@ function Field({scale, onClick, letters, selected, tiles}) {
         letters={letters}
         selected={selected}
         onClick={onClick}
+        onLetterDrop={onLetterDrop}
       />
     )}
   </svg>
@@ -65,7 +68,7 @@ function Controls({onZoom}) {
   </Palette>
 }
 
-function Game({dict, existingLetters, tiles}) {
+function Game({dict, existingLetters, tiles, team}) {
   const [scale, setScale] = useState(0.5);
   const [available, setAvailable] = useState("aabcdef".split(""))
 
@@ -73,7 +76,31 @@ function Game({dict, existingLetters, tiles}) {
     setScale(s => s * zoom);
   }
 
+  const [newWord, setNewWord] = useState([]);
+  const [selected, setSelected] = useState(null);
+
+
+  const [selectedPanelIndex, setSelectedPanelIndex] = useState(null);
+  const handlePanelSelect = index => {
+    if (index == selectedPanelIndex) {
+      setSelectedPanelIndex(null);
+    } else {
+      setSelectedPanelIndex(index);
+    }
+  };
+
+  const panelLetter = available[selectedPanelIndex];
+
   function onClick(row, col) {
+    if (newWord.length > 0) {
+      const previous = newWord[newWord.length - 1];
+
+      if (!adjacent({row, col}, previous)) {
+        // Error not adjacent
+        return;
+      }
+    }
+
     setSelected({row, col});
 
     const existingLetter = existingLetters[keyFor({row, col})];
@@ -82,13 +109,21 @@ function Game({dict, existingLetters, tiles}) {
         row,
         col,
         letter: existingLetter.letter,
-        color: 'blue'
+        team,
+        stolen: true
       }]);
+    } else {
+      if (panelLetter) {
+        setNewWord([...newWord, {
+          row,
+          col,
+          letter: panelLetter,
+          team
+        }]);
+        setSelectedPanelIndex(null);
+      }
     }
   }
-
-  const [newWord, setNewWord] = useState([]);
-  const [selected, setSelected] = useState(null);
 
   const letters = newWord.reduce((acc, letter) => {
     acc[keyFor(letter)] = letter;
@@ -99,48 +134,52 @@ function Game({dict, existingLetters, tiles}) {
 
   const remaining = [...available];
   newWord.forEach(item => {
-    const { letter } = item;
+    const { letter, stolen } = item;
     const index = remaining.indexOf(letter);
-    if (index !== -1) remaining.splice(index, 1);
+    if (index !== -1 && !stolen) remaining.splice(index, 1);
   });
+
+  function handleNewLetter(position, letter) {
+    if (newWord.length > 0) {
+      const previous = newWord[newWord.length - 1];
+
+      if (!adjacent(position, previous)) {
+        // Error not adjacent
+        return;
+      }
+    }
+
+    if (letter >= 'a' && letter <= 'z') {
+      if (position) {
+        if (letters[keyFor(position)]) {
+          // error - letter already placed
+          return;
+        }
+
+        if (!remaining.includes(letter)) {
+          // error - not available letter
+          return;
+        }
+
+        const { row, col } = position;
+        setNewWord([...newWord, {
+          row,
+          col,
+          letter,
+          team: 1
+        }]);
+      }
+    }
+  }
 
   useEffect(() => {
     function handleKeyPress(event) {
       const { key } = event;
-      if (key >= 'a' && key <= 'z') {
-        if (selected) {
-          if (letters[keyFor(selected)]) {
-            // error - letter already placed
-            return;
-          }
-
-          if (!remaining.includes(key)) {
-            // error - not available letter
-            return;
-          }
-
-          if (newWord.length > 0) {
-            const previous = newWord[newWord.length - 1];
-            if (!adjacent(selected, previous)) {
-              // Error not adjacent
-              return;
-            }
-          }
-
-          const { row, col } = selected;
-          setNewWord([...newWord, {
-            row,
-            col,
-            letter: event.key,
-            color: 'blue'
-          }]);
-        }
-      }
+      handleNewLetter(selected, key);
     }
     document.addEventListener("keypress", handleKeyPress);
     return () => document.removeEventListener("keypress", handleKeyPress);
   }, [selected, letters]);
-
 
   const backspace = () => setNewWord(newWord.slice(0, newWord.length - 1));
   const clear = () => setNewWord([]);
@@ -152,6 +191,7 @@ function Game({dict, existingLetters, tiles}) {
     has(dict, actualNewWord)
   ) : false;
 
+
   return <Container>
     <Controls onZoom={onZoom}/>
     <Wrapper>
@@ -161,9 +201,16 @@ function Game({dict, existingLetters, tiles}) {
         onClick={onClick}
         letters={allLetters}
         tiles={tiles}
+        onLetterDrop={handleNewLetter}
       />
     </Wrapper>
     <Panel>
+      <AvailableLetters
+        available={available}
+        remaining={remaining}
+        selectedIndex={selectedPanelIndex}
+        onSelect={handlePanelSelect}
+      />
       <div>{ available.join(', ') }</div>
       <div>{ remaining.join(', ') }</div>
       <div>{ newWord.map(letter => letter.letter).join(', ') } {isValid ? '✅' : '❌'}</div>
@@ -198,7 +245,7 @@ export default function App() {
         acc[keyFor(pos)] = {
           ...pos,
           letter: seedWord[index],
-          color: 'yellow',
+          team: 0,
         }
         return acc;
       }, {});
@@ -209,5 +256,5 @@ export default function App() {
 
   if (!dict) return 'loading';
 
-  return <Game dict={dict} existingLetters={existingLetters} tiles={tiles} />;
+  return <Game dict={dict} existingLetters={existingLetters} tiles={tiles} team={1} />;
 }
