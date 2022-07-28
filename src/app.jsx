@@ -183,7 +183,9 @@ function Game({dict, existingLetters, tiles, team}) {
 
   const backspace = () => setNewWord(newWord.slice(0, newWord.length - 1));
   const clear = () => setNewWord([]);
-
+  const commit = () => {
+    console.log('commit!')
+  };
 
   const actualNewWord = newWord.map(l => l.letter).join('');
 
@@ -211,12 +213,11 @@ function Game({dict, existingLetters, tiles, team}) {
         selectedIndex={selectedPanelIndex}
         onSelect={handlePanelSelect}
       />
-      <div>{ available.join(', ') }</div>
-      <div>{ remaining.join(', ') }</div>
       <div>{ newWord.map(letter => letter.letter).join(', ') } {isValid ? '✅' : '❌'}</div>
       <div>
         <button onClick={backspace} disabled={newWord.length < 1}>backspace</button>
         <button onClick={clear}>clear</button>
+        <button onClick={commit}>commit</button>
       </div>
     </Panel>
   </Container>
@@ -227,6 +228,8 @@ function Game({dict, existingLetters, tiles, team}) {
 export default function App() {
   const [dict, setDict] = useState(null);
   const [existingLetters, setExistingLetters] = useState(null);
+  const [team, setTeam] = useState(1);
+
   const tiles = useMemo(buildField);
 
   useEffect(() => {
@@ -256,5 +259,10 @@ export default function App() {
 
   if (!dict) return 'loading';
 
-  return <Game dict={dict} existingLetters={existingLetters} tiles={tiles} team={1} />;
+  return <Game
+    dict={dict}
+    existingLetters={existingLetters}
+    tiles={tiles}
+    team={team}
+  />;
 }
